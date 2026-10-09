@@ -2,6 +2,8 @@
 const express = require('express');
 const path = require('path');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const { load } = require('./config');
 const { openDb } = require('./db');
 const { createAuth, hashPassword, generatePassword } = require('./auth');
@@ -23,7 +25,7 @@ async function createApp(overrides = {}) {
   let bootstrap = null;
   if (db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0) {
     const pw = process.env.ISR_ADMIN_PASSWORD || generatePassword();
-    db.prepare("INSERT INTO users (username,nom,prenom,grade,role,pw_hash,must_change) VALUES ('admin','Administrateur','ISR','ADMIN','admin',?,1)")
+    db.prepare("INSERT INTO users (username,nom,prenom,grade,role,pw_hash,must_change) VALUES ('admin','ISR','Administrateur','Admin','admin',?,1)")
       .run(await hashPassword(pw));
     bootstrap = { username: 'admin', password: pw };
     audit({ ip: null }, 'initialisation', 'Compte administrateur créé');
@@ -84,7 +86,9 @@ async function createApp(overrides = {}) {
   const purgeTimer = setInterval(() => auth.purgeExpired(), 3600 * 1000);
   purgeTimer.unref();
 
-  const server = http.createServer(app);
+  const server = config.tlsCert && config.tlsKey
+    ? https.createServer({ cert: fs.readFileSync(config.tlsCert), key: fs.readFileSync(config.tlsKey) }, app)
+    : http.createServer(app);
   // Les gros envois peuvent durer des heures : pas de délai global.
   server.requestTimeout = 0;
   server.headersTimeout = 60 * 1000;
@@ -103,7 +107,9 @@ async function createApp(overrides = {}) {
 async function main() {
   const inst = await createApp();
   inst.server.listen(inst.config.port, inst.config.host, () => {
-    console.log(`ISR DATABASE — serveur démarré sur http://${inst.config.host}:${inst.config.port}`);
+    const proto = inst.config.tlsCert ? 'https' : 'http';
+    console.log(`ISR DATABASE — serveur démarré sur ${proto}://${inst.config.host}:${inst.config.port}`);
+    if (!inst.config.tlsCert && !inst.config.secureCookie) console.log('Attention : HTTP non chiffré. Sur un réseau partagé, activez HTTPS (voir docs/EXPLOITATION.md).');
     console.log(`Données : ${inst.config.dataDir}`);
     if (inst.bootstrap) {
       console.log('------------------------------------------------------------');
@@ -118,6 +124,9 @@ async function main() {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 }
+
+process.on('unhandledRejection', (e) => console.error(new Date().toISOString(), 'unhandledRejection', e));
+process.on('uncaughtException', (e) => { console.error(new Date().toISOString(), 'uncaughtException', e); process.exit(1); });
 
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
 module.exports = { createApp };

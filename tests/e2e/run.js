@@ -1,0 +1,240 @@
+'use strict';
+// Test de bout en bout dans Chromium (Playwright). Usage : node tests/e2e/run.js [dossier_captures]
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { chromium } = require('playwright');
+const { startServer } = require('../helpers');
+
+const SHOTS = process.argv[2] || null;
+if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
+let failures = 0;
+const ok = (cond, msg) => { if (cond) console.log('  ✔', msg); else { failures++; console.log('  ✘ ÉCHEC :', msg); } };
+
+(async () => {
+  const srv = await startServer();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'isr-e2e-files-'));
+  const pdf = path.join(tmp, 'Rapport ISR 09-10.pdf'); fs.writeFileSync(pdf, '%PDF-1.4 test');
+  const pptx = path.join(tmp, 'Briefing.pptx'); fs.writeFileSync(pptx, 'PK fake pptx');
+  const exe = path.join(tmp, 'mauvais.exe'); fs.writeFileSync(exe, 'MZ');
+  const png = path.join(tmp, 'photo.png'); fs.writeFileSync(png, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+  const mp4 = path.join(tmp, 'vol.mp4'); fs.writeFileSync(mp4, Buffer.alloc(5000, 1));
+
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 800 }, acceptDownloads: true });
+  const page = await ctx.newPage();
+  const problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  // Les 401/400 volontaires du scénario (mauvais mot de passe, mot de passe faible) sont journalisés par Chromium : ignorés.
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) problems.push('console: ' + m.text()); });
+  page.on('dialog', (d) => { problems.push('dialog natif: ' + d.message()); d.dismiss(); });
+  const shot = async (name) => { if (SHOTS) { await page.waitForTimeout(700); await page.screenshot({ path: path.join(SHOTS, name + '.png') }); } };
+  const T = 8000;
+  const closeAll = async () => { for (let i = 0; i < 8 && (await page.locator('.mbg.open').count()); i++) await page.keyboard.press('Escape'); };
+
+  async function login(user, pw) {
+    await page.waitForSelector('#s3.on', { timeout: 15000 });
+    await page.fill('#in-login', user); await page.fill('#in-pwd', pw);
+    await page.click('#btn-login');
+  }
+  async function changePw(current, next) {
+    await page.waitForSelector('#pw-form', { timeout: T });
+    await page.fill('#pw-form [name=current]', current); await page.fill('#pw-form [name=next]', next); await page.fill('#pw-form [name=next2]', next);
+    await page.click('#pw-form button[type=submit]');
+    await page.waitForSelector('#modal-password:not(.open)', { state: 'attached', timeout: T });
+  }
+
+  console.log('1. Connexion et mot de passe temporaire');
+  await page.goto(srv.base + '/');
+  await page.waitForSelector('#s3.on', { timeout: 15000 });
+  await shot('01-login');
+  await page.fill('#in-login', 'admin'); await page.fill('#in-pwd', 'mauvais'); await page.click('#btn-login');
+  await page.waitForFunction(() => document.getElementById('login-error').textContent.length > 0);
+  ok((await page.textContent('#login-error')).includes('incorrect'), 'mauvais mot de passe : message inline (pas d\'alert)');
+  await page.fill('#in-pwd', 'Admin-Initial-1'); await page.click('#btn-login');
+  await page.waitForSelector('#pw-form', { timeout: T });
+  await page.keyboard.press('Escape');
+  ok(await page.isVisible('#pw-form'), 'Échap ne ferme pas la fenêtre de mot de passe obligatoire');
+  await shot('02-mdp-force');
+  await page.fill('#pw-form [name=current]', 'Admin-Initial-1'); await page.fill('#pw-form [name=next]', 'court1A'); await page.fill('#pw-form [name=next2]', 'court1A');
+  await page.click('#pw-form button[type=submit]');
+  await page.waitForFunction(() => document.getElementById('pw-error').textContent.length > 0);
+  ok(true, 'mot de passe trop faible refusé : ' + (await page.textContent('#pw-error')));
+  await changePw('Admin-Initial-1', 'Admin-Final-123');
+  ok(await page.isVisible('#s4.on'), 'menu principal affiché après changement');
+  await shot('03-menu');
+
+  console.log('2. Échap sans modale ouverte (bug du prototype)');
+  await page.keyboard.press('Escape');
+  ok((await page.locator('.mbg.open').count()) === 0, 'aucune fenêtre « null › null » ne s\'ouvre');
+
+  console.log('3. Administration : création de comptes');
+  await page.click('[data-act=openSidePanel]'); await page.click('#nav-admin');
+  await page.waitForSelector('#new-user-form');
+  await shot('04-admin');
+  async function newUser(username, role) {
+    const f = page.locator('#new-user-form');
+    await f.locator('[name=username]').fill(username); await f.locator('[name=grade]').fill('Sergent');
+    await f.locator('[name=nom]').fill(username === 'xss.op' ? '<img src=x onerror="window.__xss=1">' : username.toUpperCase());
+    await f.locator('[name=prenom]').fill('Jean'); await f.locator('[name=role]').selectOption(role);
+    await f.locator('button[type=submit]').click();
+    await page.waitForSelector('#temp-pw');
+    const pw = await page.textContent('#temp-pw');
+    await page.click('#modal-temp-pw [data-close]');
+    return pw;
+  }
+  const opPw = await newUser('xss.op', 'operateur');
+  const lecPw = await newUser('lecteur.k', 'lecteur');
+  ok(opPw.length >= 14 && lecPw.length >= 14, 'mots de passe temporaires générés');
+  ok(!(await page.evaluate(() => window.__xss)), 'nom piégé non exécuté dans la liste des utilisateurs');
+  ok((await page.locator('#admin-body').innerText()).includes('<IMG SRC=X ONERROR='), 'nom piégé affiché comme texte');
+  await page.click('.tab[data-tab=audit]'); await page.waitForSelector('#audit-q');
+  ok((await page.locator('#admin-body').innerText()).includes('utilisateur_cree'), 'journal d\'audit alimenté');
+  await page.click('.tab[data-tab=system]'); await page.waitForSelector('.stats');
+  await page.click('[data-act=doBackup]'); await page.waitForSelector('text=isr-');
+  ok(true, 'sauvegarde de la base créée depuis l\'interface');
+  await shot('05-admin-systeme');
+  await page.keyboard.press('Escape');
+  await page.click('[data-act=openSidePanel]'); await page.click('[data-act=logout]');
+  await page.waitForSelector('#s3.on');
+
+  console.log('4. Opérateur : fichiers par zone');
+  await login('xss.op', opPw);
+  await changePw(opPw, 'Operateur-Pass-1');
+  await page.waitForSelector('#prev-user-banner', { timeout: T });
+  ok(true, 'bannière « dernière connexion » affichée (nom échappé)');
+  ok(!(await page.evaluate(() => window.__xss)), 'aucun script exécuté via la bannière / le panneau');
+  await shot('06-operateur');
+  await page.click('[data-act=openRegistre]');
+  await page.click('.reg-card.active-year');
+  await page.waitForSelector('#mois-grid .mc');
+  await shot('07-mois');
+  const monthIdx = new Date().getMonth();
+  await page.locator('#mois-grid .mc').nth(monthIdx).click();
+  await page.waitForSelector('#zones-grid .zone-card');
+  await shot('08-zones');
+  await page.locator('#zones-grid .zone-card').first().click();
+  await page.waitForSelector('#zone-files .zone-empty');
+  await page.setInputFiles('#zone-file-input', [pdf, pptx]);
+  await page.waitForSelector('#zone-files .zf-file');
+  ok((await page.locator('#zone-files .zf-file').count()) === 2, '2 fichiers déposés et listés');
+  ok((await page.locator('.zf-folder-name').first().textContent()).startsWith('Rapport_mission_isr_'), 'dossier du jour créé');
+  await shot('09-zone-fichiers');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-act=dlFile]').first().click()]);
+  const dlPath = await dl.path();
+  ok(fs.statSync(dlPath).size > 0, 'téléchargement : ' + dl.suggestedFilename());
+  const [zip] = await Promise.all([page.waitForEvent('download'), page.click('#btn-zip-zone')]);
+  ok(zip.suggestedFilename().endsWith('.zip'), 'ZIP de zone : ' + zip.suggestedFilename());
+  await page.setInputFiles('#zone-file-input', [exe]);
+  await page.waitForSelector('.toast-error');
+  ok(true, 'fichier .exe refusé avec message');
+  await page.locator('[data-act=delFile]').first().click();
+  await page.waitForSelector('#modal-confirm.open');
+  await shot('10-confirmation');
+  await page.click('#modal-confirm [data-r="1"]');
+  await page.waitForFunction(() => document.querySelectorAll('#zone-files .zf-file').length === 1);
+  ok(true, 'suppression avec confirmation (fenêtre interne, pas confirm())');
+
+  console.log('5. Médias');
+  await page.click('#modal-zone [data-act=openMedia]');
+  await page.fill('#media-poi-input', '<img src=x onerror="window.__xss=2">');
+  await page.click('#btn-add-poi');
+  await page.waitForFunction(() => !document.getElementById('btn-upload-img').disabled);
+  await page.click('#btn-upload-img');
+  await page.setInputFiles('#media-file-input', [png]);
+  await page.waitForSelector('.media-card');
+  await page.click('#btn-upload-vid');
+  await page.setInputFiles('#media-file-input', [mp4]);
+  await page.waitForFunction(() => document.querySelectorAll('.media-card').length === 2);
+  ok(!(await page.evaluate(() => window.__xss)), 'nom de POI piégé non exécuté');
+  ok((await page.locator('.media-poi-title').first().innerText()).includes('<IMG SRC=X'), 'nom de POI affiché en texte');
+  await shot('11-medias');
+  await page.locator('.media-card').first().click();
+  await page.waitForSelector('#modal-view-media.open');
+  await shot('12-visionneuse');
+  await page.keyboard.press('Escape');
+  ok(!(await page.isVisible('#modal-view-media.open')) && (await page.isVisible('#modal-media.open')), 'Échap ferme seulement la visionneuse');
+  const [mz] = await Promise.all([page.waitForEvent('download'), page.click('#btn-zip-media')]);
+  ok(mz.suggestedFilename().startsWith('ISR_MEDIAS_'), 'ZIP des médias : ' + mz.suggestedFilename());
+  await closeAll();
+
+  console.log('6. Fiches');
+  ok((await page.locator('.mbg.open').count()) === 0, 'Échap ferme les fenêtres une par une, de la plus récente à la plus ancienne');
+  await page.click('[data-act=openRediger]'); await page.click('#modal-rediger [data-act=openFiche]');
+  ok(await page.locator('#f-btn-s').isDisabled(), 'ENREGISTRER désactivé tant que le formulaire est incomplet');
+  const fe = page.locator('#form-etat');
+  await fe.locator('[name=codeid]').selectOption('TU-VMD');
+  for (const [k, v] of [['cdb', 'Cne <b>A</b>'], ['cop', 'Lt B'], ['op1', 'Sgt C'], ['op2', 'Sgt D'], ['meca', 'Adj E'], ['obj', 'Reconnaissance <script>window.__xss=3</script>']]) await fe.locator(`[name=${k}]`).fill(v);
+  await fe.locator('[name=hdec]').fill('23:30'); await fe.locator('[name=hatt]').fill('01:10');
+  ok((await page.textContent('#f-tot')) === '01H40', 'durée calculée à travers minuit : 01H40');
+  await shot('13-fiche-etat');
+  await page.click('#f-btn-s'); await page.waitForSelector('#fiche-ok.show');
+  ok(true, 'fiche état enregistrée en base');
+  const [pop] = await Promise.all([page.waitForEvent('popup'), page.click('#f-btn-p')]);
+  await pop.waitForLoadState();
+  const html = await pop.content();
+  ok(html.includes('Cne &lt;b&gt;A&lt;/b&gt;') && !html.includes('<script>window.__xss'), 'impression : valeurs échappées');
+  ok(html.includes('01H40') && html.includes('TU-VMD'), 'impression : contenu de la fiche');
+  await pop.close();
+  await page.keyboard.press('Escape');
+  await page.click('[data-act=openRediger]'); await page.click('#modal-rediger [data-act=openPoi]');
+  await page.fill('#p-miss', 'Surveillance Nord');
+  await page.click('[data-act=addPoi]');
+  ok((await page.locator('.poi-badge').nth(1).textContent()) === 'POI 2', 'POI 2 ajouté');
+  await page.locator('[data-act=delPoi]').first().click();
+  ok((await page.locator('.poi-badge').first().textContent()) === 'POI 1', 'numérotation recalculée après suppression (bug du prototype)');
+  const poi = page.locator('#poi-list .poi-item').first();
+  await poi.locator('[data-f=nom]').fill('BOUNA AFLD');
+  await poi.locator('[data-f=lonDir]').selectOption('E').catch(() => {});
+  for (const [k, v] of [['latd', '9'], ['latm', '15'], ['lats', '30.5'], ['lond', '3'], ['lonm', '0'], ['lons', '1']]) await poi.locator(`[data-f=${k}]`).fill(v);
+  await shot('14-fiche-mission');
+  await page.click('#p-btn-s'); await page.waitForSelector('#poi-ok.show');
+  const [pop2] = await Promise.all([page.waitForEvent('popup'), page.click('#p-btn-p')]);
+  await pop2.waitForLoadState();
+  const h2 = await pop2.content();
+  ok(h2.includes('BOUNA AFLD') && h2.includes('avion.png') && h2.includes('N 9'), 'impression POI : contenu + filigrane présent (bug du prototype)');
+  const imgOk = await pop2.evaluate(() => new Promise((r) => { const i = document.querySelector('img[src="/assets/avion.png"]'); if (i.complete) r(i.naturalWidth > 0); else i.onload = () => r(true); }));
+  ok(imgOk, 'image du filigrane chargée');
+  await pop2.close();
+  await page.keyboard.press('Escape');
+
+  console.log('7. Fiches du mois, historique');
+  await page.click('[data-act=openRegistre]'); await page.click('.reg-card.active-year'); await page.locator('#mois-grid .mc').nth(monthIdx).click();
+  await page.waitForSelector('#zones-grid .zone-card');
+  ok((await page.locator('#mois-grid .mc').nth(monthIdx).textContent()).includes('2 fiches'), 'compteur « 2 fiches » exact sur le mois');
+  await page.click('#btn-fiches-mois'); await page.waitForSelector('#modal-fiches-list .tbl');
+  ok((await page.locator('#modal-fiches-list tbody tr').count()) === 2, 'liste des 2 fiches enregistrées');
+  await shot('15-fiches-mois');
+  await closeAll();
+  await page.click('[data-act=openSidePanel]'); await page.click('[data-act=showHistorique]'); await page.waitForSelector('#modal-histo .tbl');
+  ok((await page.locator('#modal-histo .pill.ok').count()) === 1, 'un seul « EN LIGNE » (bug du prototype)');
+  await shot('16-historique');
+  await closeAll();
+
+  console.log('8. Rechargement : session conservée ; lecteur : droits limités');
+  await page.reload(); await page.waitForSelector('#s4.on', { timeout: 15000 });
+  ok(true, 'après rechargement la session reste ouverte');
+  await page.click('[data-act=openSidePanel]'); await page.click('[data-act=logout]'); await page.waitForSelector('#s3.on');
+  await login('lecteur.k', lecPw); await changePw(lecPw, 'Lecteur-Pass-12');
+  await page.waitForSelector('#s4.on');
+  ok(await page.locator('#menu-fiche').evaluate((e) => e.classList.contains('disabled')), 'lecteur : création de fiche désactivée');
+  await page.click('[data-act=openRegistre]'); await page.click('.reg-card.active-year'); await page.locator('#mois-grid .mc').nth(monthIdx).click();
+  await page.waitForSelector('#zones-grid .zone-card'); await page.locator('#zones-grid .zone-card').first().click();
+  await page.waitForSelector('#zone-files .zf-file');
+  ok(await page.isHidden('#btn-upload-files'), 'lecteur : bouton d\'envoi masqué');
+  ok((await page.locator('[data-act=delFile]').count()) === 0, 'lecteur : aucun bouton de suppression');
+  ok((await page.locator('[data-act=dlFile]').count()) === 1, 'lecteur : peut télécharger');
+  await shot('17-lecteur');
+  await closeAll();
+  await page.click('[data-act=openSidePanel]'); ok(await page.isHidden('#nav-admin'), 'lecteur : pas d\'administration');
+
+  console.log('9. Petit écran');
+  await closeAll();
+  await page.setViewportSize({ width: 390, height: 780 });
+  await shot('18-mobile');
+
+  ok(problems.length === 0, 'aucune erreur console / CSP / alert natif' + (problems.length ? ' → ' + problems.join(' | ') : ''));
+  await browser.close(); await srv.stop(); fs.rmSync(tmp, { recursive: true, force: true });
+  console.log(failures ? `\n${failures} ÉCHEC(S)` : '\nTOUS LES CONTRÔLES SONT PASSÉS');
+  process.exit(failures ? 1 : 0);
+})().catch((e) => { console.error('ERREUR E2E :', e); process.exit(2); });

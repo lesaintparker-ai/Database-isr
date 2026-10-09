@@ -5,7 +5,12 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node tests/e2e/run.js",
+    "stress": "node scripts/stress-test.js",
+    "backup": "node scripts/backup.js",
+    "check": "node scripts/check-integrity.js",
+    "reset-password": "node scripts/reset-password.js"
   },
   "engines": {
     "node": ">=20"

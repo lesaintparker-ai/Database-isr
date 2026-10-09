@@ -1,0 +1,22 @@
+# Linux (systemd) : copier dans /etc/systemd/system/, adapter les chemins et l'utilisateur, puis
+#   sudo systemctl daemon-reload && sudo systemctl enable --now isr-database
+[Unit]
+Description=ISR DATABASE
+After=network.target
+
+[Service]
+Type=simple
+User=isr
+WorkingDirectory=/opt/isr-database
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+# Les envois très volumineux gardent beaucoup de descripteurs ouverts
+LimitNOFILE=65536
+# Durcissement
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/isr-database /srv/isr-data
+
+[Install]
+WantedBy=multi-user.target

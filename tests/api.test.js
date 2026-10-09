@@ -17,7 +17,7 @@ after(async () => { await srv.stop(); });
 
 test('sans session : API refusée, statiques accessibles', async () => {
   const c = client(srv.base);
-  assert.equal((await c.get('/api/me')).status, 401);
+  assert.equal((await (await c.get('/api/me')).json()).user, null);
   assert.equal((await c.get('/api/summary/2026')).status, 401);
   assert.equal((await fetch(srv.base + '/')).status, 200);
 });
@@ -203,7 +203,7 @@ test('administrateurs : impossible de retirer le dernier, sessions révoquées �
   const target = users.find((u) => u.username === 'lecteur1');
   assert.equal((await lect.get('/api/me')).status, 200);
   assert.equal((await admin.patch(`/api/users/${target.id}`, { active: false })).status, 200);
-  assert.equal((await lect.get('/api/me')).status, 401);
+  assert.equal((await (await lect.get('/api/me')).json()).user, null);
   assert.notEqual((await client(srv.base).login('lecteur1', 'Motdepasse-12')).status, 200);
 });
 
@@ -233,5 +233,5 @@ test('déconnexion invalide la session', async () => {
   const cookie = c.cookie();
   await c.post('/api/logout');
   const stale = client(srv.base); stale.setCookie(cookie);
-  assert.equal((await stale.get('/api/me')).status, 401);
+  assert.equal((await (await stale.get('/api/me')).json()).user, null);
 });

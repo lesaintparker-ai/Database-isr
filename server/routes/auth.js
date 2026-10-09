@@ -11,9 +11,23 @@ const publicUser = (u) => ({
 
 module.exports = function authRoutes({ db, config, auth, audit }) {
   const r = express.Router();
-  const failures = new Map(); // clé "ip|user" → { count, until }
-  const MAX_FAIL = 5;
+  const failures = new Map(); // clé "ip|user" ou "ip" → { count, until }
+  const MAX_FAIL = 5;          // échecs avant verrouillage d'un couple IP + identifiant
+  const MAX_FAIL_IP = 30;      // échecs avant verrouillage d'une IP (identifiants tournants)
   const LOCK_MS = 10 * 60 * 1000;
+  function purgeFailures() {
+    if (failures.size < 5000) return;
+    const now = Date.now();
+    for (const [k, f] of failures) if (f.until < now && f.count < 1) failures.delete(k);
+    if (failures.size > 50000) failures.clear();
+  }
+  function registerFailure(key, max) {
+    const f = failures.get(key) || { count: 0, until: 0 };
+    if (f.until && f.until < Date.now()) { f.until = 0; f.count = 0; }
+    f.count += 1;
+    if (f.count >= max) { f.until = Date.now() + LOCK_MS; f.count = 0; }
+    failures.set(key, f);
+  }
   let dummyHash = null;
 
   const keyOf = (req, username) => `${req.ip}|${String(username).toLowerCase()}`;
@@ -22,8 +36,9 @@ module.exports = function authRoutes({ db, config, auth, audit }) {
   r.post('/login', ah(async (req, res) => {
     const username = str(req.body && req.body.username, 'Identifiant', { max: 80 });
     const password = typeof (req.body && req.body.password) === 'string' ? req.body.password : '';
+    purgeFailures();
     const key = keyOf(req, username);
-    const wait = lockedFor(key);
+    const wait = Math.max(lockedFor(key), lockedFor(req.ip));
     if (wait) throw new HttpError(429, `Trop de tentatives. Réessayez dans ${Math.ceil(wait / 60)} min.`);
 
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
@@ -31,10 +46,8 @@ module.exports = function authRoutes({ db, config, auth, audit }) {
     const ok = await verifyPassword(password, user ? user.pw_hash : dummyHash);
 
     if (!user || !ok || !user.active) {
-      const f = failures.get(key) || { count: 0, until: 0 };
-      f.count += 1;
-      if (f.count >= MAX_FAIL) { f.until = Date.now() + LOCK_MS; f.count = 0; }
-      failures.set(key, f);
+      registerFailure(key, MAX_FAIL);
+      registerFailure(req.ip, MAX_FAIL_IP);
       db.prepare('INSERT INTO login_history (user_id,username,ok,ip) VALUES (?,?,0,?)').run(user ? user.id : null, username, req.ip);
       audit({ user: user || { id: null, username } , ip: req.ip }, 'login_echec', username);
       throw new HttpError(401, 'Identifiant ou mot de passe incorrect.');
@@ -62,8 +75,8 @@ module.exports = function authRoutes({ db, config, auth, audit }) {
   });
 
   r.get('/me', auth.loadUser, (req, res) => {
-    if (!req.user) return res.status(401).json({ error: 'Non authentifié.' });
-    res.json({ user: publicUser(req.user) });
+    // 200 même sans session : le navigateur ne journalise pas d'erreur au chargement de la page.
+    res.json({ user: req.user ? publicUser(req.user) : null });
   });
 
   r.post('/password', auth.loadUser, auth.requireAuth, ah(async (req, res) => {

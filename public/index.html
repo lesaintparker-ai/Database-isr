@@ -1,1 +1,340 @@
-<!doctype html><title>ISR</title>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISR DATABASE</title>
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<!-- ÉCRANS D'ACCUEIL -->
+<div class="scr on" id="s1">
+  <img src="/assets/logo.png" alt="Logo">
+  <div class="s-label">REPUBLIQUE DE COTE D'IVOIRE &nbsp;&middot;&nbsp; ARMEE DE L'AIR</div>
+</div>
+<div class="scr" id="s2">
+  <img src="/assets/isr.png" alt="ISR">
+  <div class="gold-line"></div>
+  <div class="isr-big">ISR <span>DATABASE</span></div>
+  <div class="isr-sub">Intelligence &nbsp;&middot;&nbsp; Surveillance &nbsp;&middot;&nbsp; Reconnaissance</div>
+</div>
+
+<!-- CONNEXION -->
+<div class="scr" id="s3">
+  <div class="bg-blur"></div>
+  <div class="bg-ov"></div>
+  <div class="login-top">
+    <img src="/assets/logo.png" alt="Logo">
+    <div class="lt-t">ISR DATABASE</div>
+    <div class="lt-sep"></div>
+    <div class="lt-s">ARMEE DE L'AIR &mdash; COTE D'IVOIRE</div>
+  </div>
+  <form class="card" id="login-form" autocomplete="on">
+    <h2>CONNEXION</h2>
+    <p>Entrez votre identifiant et votre mot de passe</p>
+    <label class="lbl" for="in-login">IDENTIFIANT</label>
+    <input class="inp" type="text" id="in-login" name="username" placeholder="Votre identifiant..." autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label class="lbl" for="in-pwd">MOT DE PASSE</label>
+    <input class="inp" type="password" id="in-pwd" name="password" placeholder="••••••••" autocomplete="current-password">
+    <div class="show-row">
+      <input type="checkbox" id="chk-show">
+      <label for="chk-show">Afficher le mot de passe</label>
+    </div>
+    <div class="form-error" id="login-error" role="alert"></div>
+    <button class="btn-conn" id="btn-login" type="submit">&#9654;&nbsp; SE CONNECTER</button>
+    <div class="login-help">Pas de compte ? Contactez l'administrateur.</div>
+  </form>
+  <div class="login-foot"><span>ISR DATABASE v3.0</span><span class="clock"></span></div>
+</div>
+
+<!-- MENU PRINCIPAL -->
+<div class="scr" id="s4">
+  <div class="menu-bg-img"></div>
+  <div class="menu-ov"></div>
+  <div class="mhdr" style="justify-content:space-between;">
+    <img src="/assets/logo.png" alt="Logo" style="width:52px;filter:drop-shadow(0 0 8px rgba(200,168,75,.3));">
+    <div style="text-align:center;">
+      <div class="mh-t">ISR DATABASE</div>
+      <div class="mh-s">Armee de l'Air &mdash; C&ocirc;te d'Ivoire &nbsp;&middot;&nbsp; v3.0</div>
+    </div>
+    <button class="hamburger-btn" data-act="openSidePanel" title="Menu" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+  <div class="mband">Menu &nbsp;&rsaquo;&nbsp; Selectionnez une action</div>
+  <div class="mbody">
+    <div class="mbtn" data-act="openRegistre" role="button" tabindex="0">
+      <div class="mbtn-ico">&#128190;</div>
+      <div class="mbtn-lbl">SAUVEGARDE</div>
+      <div class="mbtn-sub">Dossiers ISR_DATABASE<br>depuis 2026</div>
+    </div>
+    <div class="mbtn" id="menu-fiche" data-act="openRediger" role="button" tabindex="0">
+      <div class="mbtn-ico">&#128203;&#9998;</div>
+      <div class="mbtn-lbl">FICHE</div>
+      <div class="mbtn-sub">Cr&eacute;er une fiche<br>op&eacute;rationnelle</div>
+    </div>
+  </div>
+  <div class="mfoot"><span>ISR DATABASE v3.0 &mdash; Usage Officiel</span><span class="clock"></span></div>
+</div>
+
+<!-- REGISTRE (années) -->
+<div class="mbg" id="modal-registre">
+  <div class="reg-box">
+    <div class="reg-hdr">
+      <span style="font-size:28px">&#128218;</span>
+      <div>
+        <div class="reg-hdr-title">REGISTRE ISR</div>
+        <div class="reg-hdr-sub">Dossiers op&eacute;rationnels ISR_DATABASE &mdash; Arm&eacute;e de l'Air &mdash; C&ocirc;te d'Ivoire</div>
+      </div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn" data-close="modal-registre" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="reg-band"><span>ISR_DATABASE &mdash; Classement par ann&eacute;e</span><span id="reg-info-droite"></span></div>
+    <div class="reg-grid" id="reg-grid"></div>
+    <div class="reg-foot">
+      <span class="reg-foot-info">&#128994; Ann&eacute;e active &nbsp;&nbsp; &#128308; Ann&eacute;e courante &nbsp;&nbsp; &#9940; Acc&egrave;s verrouill&eacute;</span>
+      <button class="fbtn fbtn-x" data-close="modal-registre">&#10005;&nbsp; FERMER</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOIS -->
+<div class="mbg" id="modal-mois">
+  <div class="mbox">
+    <div class="mbox-hdr">
+      <span style="font-size:24px">&#128193;</span>
+      <div><div class="mbox-title" id="mois-title">ISR_DATABASE_2026</div><div class="mbox-sub">Cliquez sur un mois pour acceder aux fiches</div></div>
+      <div class="close-btns"><button class="cbtn" data-close="modal-mois" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="mgrid" id="mois-grid"></div>
+  </div>
+</div>
+
+<!-- ZONES -->
+<div class="mbg" id="modal-zones">
+  <div class="zones-box">
+    <div class="zones-hdr">
+      <span style="font-size:26px">&#128230;</span>
+      <div>
+        <div class="zones-hdr-title" id="zones-year-month"></div>
+        <div class="zones-hdr-sub">S&eacute;lectionner une zone op&eacute;rationnelle</div>
+      </div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn" data-close="modal-zones" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="zone-toolbar">
+      <button class="btn-upload btn-blue" data-act="openMedia">&#128247;&nbsp; M&Eacute;DIAS DU MOIS</button>
+      <button class="btn-upload" data-act="openFichesMois" id="btn-fiches-mois">&#128203;&nbsp; FICHES DU MOIS</button>
+    </div>
+    <div class="zones-grid" id="zones-grid"></div>
+    <div class="dlg-foot"><button class="fbtn fbtn-x" data-close="modal-zones">&#10005;&nbsp; FERMER</button></div>
+  </div>
+</div>
+
+<!-- ZONE (fichiers) -->
+<div class="mbg" id="modal-zone">
+  <div class="zone-box">
+    <div class="zone-hdr" id="zone-header-bar">
+      <span style="font-size:26px">&#128193;</span>
+      <div>
+        <div class="zone-hdr-title" id="zone-title"></div>
+        <div class="zone-hdr-sub" id="zone-subtitle"></div>
+      </div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn" data-close="modal-zone" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="zone-toolbar">
+      <button class="btn-upload" id="btn-upload-files" data-act="pickFiles">&#11014;&nbsp; FICHIERS</button>
+      <button class="btn-upload btn-blue" data-act="openMedia">&#128247;&nbsp; M&Eacute;DIAS</button>
+      <span class="upload-status" id="zone-upload-status"></span>
+      <input type="file" id="zone-file-input" multiple accept=".pptx,.ppt,.pdf,.docx,.doc" hidden>
+    </div>
+    <div class="progress" id="zone-progress"><div class="progress-bar"></div></div>
+    <div class="zone-body" id="zone-files"></div>
+    <div class="zone-foot">
+      <span class="zone-drop-hint">Glissez-d&eacute;posez des fichiers PPTX / PDF / DOCX ici</span>
+      <button class="fbtn fbtn-zip" id="btn-zip-zone" data-act="zipZone" disabled>&#11015;&nbsp; T&Eacute;L&Eacute;CHARGER LE ZIP</button>
+      <button class="fbtn fbtn-x" data-close="modal-zone">&#10005;&nbsp; FERMER</button>
+    </div>
+  </div>
+</div>
+
+<!-- MÉDIAS -->
+<div class="mbg" id="modal-media">
+  <div class="media-box">
+    <div class="media-hdr">
+      <span style="font-size:26px">&#128247;</span>
+      <div>
+        <div class="media-hdr-title">M&Eacute;DIAS ISR</div>
+        <div style="font-size:9px;color:#8A9BB0;letter-spacing:2px" id="media-subtitle"></div>
+      </div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn cbtn-b" data-close="modal-media" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="media-toolbar">
+      <div class="tb-row" id="media-create-row">
+        <input class="media-select" type="text" id="media-poi-input" placeholder="Nom du POI (ex: BOUNA NORD, CHECK POINT 3...)" maxlength="80" style="text-transform:uppercase;">
+        <button class="btn-upload-media" id="btn-add-poi" data-act="createPoi" disabled>&#43;&nbsp; CR&Eacute;ER POI</button>
+      </div>
+      <div class="tb-row">
+        <select class="media-select" id="media-poi-select"><option value="">-- S&eacute;lectionner un POI --</option></select>
+        <button class="btn-upload-media" id="btn-upload-img" data-act="pickMedia" data-kind="image" disabled>&#128247;&nbsp; IMAGES</button>
+        <button class="btn-upload-media" id="btn-upload-vid" data-act="pickMedia" data-kind="video" disabled>&#127909;&nbsp; VID&Eacute;OS</button>
+        <span class="media-status" id="media-upload-status"></span>
+      </div>
+      <input type="file" id="media-file-input" multiple hidden>
+    </div>
+    <div class="progress" id="media-progress"><div class="progress-bar"></div></div>
+    <div class="media-body" id="media-body"></div>
+    <div class="media-foot">
+      <span id="media-zip-status" class="foot-status"></span>
+      <div style="display:flex;gap:8px;">
+        <button class="pbtn pbtn-s" id="btn-zip-media" data-act="zipMedia" disabled>&#11015;&nbsp; T&Eacute;L&Eacute;CHARGER LE ZIP</button>
+        <button class="pbtn pbtn-x" data-close="modal-media">&#10005;&nbsp; FERMER</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RÉDIGER -->
+<div class="mbg" id="modal-rediger">
+  <div class="rbox">
+    <div class="rhdr">
+      <span style="font-size:26px">&#128397;</span>
+      <div><div class="rhdr-title">R&Eacute;DIGER</div><div class="rhdr-sub">S&eacute;lectionner le type de fiche &agrave; cr&eacute;er</div></div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn" data-close="modal-rediger" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="rbody">
+      <div class="rchoix" data-act="openPoi" role="button" tabindex="0">
+        <div class="rchoix-ico">&#128205;</div>
+        <div class="rchoix-lbl">FICHE MISSION ISR</div>
+        <div class="rchoix-sub">Points d'Int&eacute;r&ecirc;t (POI)<br>Coordonn&eacute;es DMS</div>
+      </div>
+      <div class="rchoix" data-act="openFiche" role="button" tabindex="0">
+        <div class="rchoix-ico">&#128203;</div>
+        <div class="rchoix-lbl">FICHE &Eacute;TAT MISSION</div>
+        <div class="rchoix-sub">&Eacute;quipage &amp; temps de vol<br>King Air 360ER</div>
+      </div>
+    </div>
+    <div class="rfoot"><button class="fbtn fbtn-x" data-close="modal-rediger">&#10005;&nbsp; ANNULER</button></div>
+  </div>
+</div>
+
+<!-- FICHE ÉTAT DE MISSION -->
+<div class="mbg" id="modal-fiche">
+  <div class="fbox">
+    <div class="fhdr">
+      <span style="font-size:26px">&#128203;</span>
+      <div><div class="fhdr-title">FICHE D'ETAT DE MISSION</div><div class="fhdr-sub">ISR &mdash; Armee de l'Air &mdash; Cote d'Ivoire</div></div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn" data-close="modal-fiche" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <form class="fbody" id="form-etat" autocomplete="off" novalidate>
+      <div class="fsec">
+        <div class="fsec-t">&#9992;&nbsp; AERONEF</div>
+        <div class="fr3">
+          <div class="fg"><span class="fl">AVION</span><div class="ff-ro">King Air 360ER</div></div>
+          <div class="fg"><span class="fl">CODE IDENTIFICATION</span>
+            <select class="ff" name="codeid"><option value="" disabled selected>-- Selectionner --</option><option>TU-VMD</option><option>TU-VMF</option></select>
+          </div>
+          <div class="fg"><span class="fl">DATE DE MISSION</span><input class="ff" name="date" type="date"></div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-t">&#128100;&nbsp; EQUIPAGE</div>
+        <div class="fr2">
+          <div class="fg"><span class="fl">PILOTE (CDB)</span><input class="ff" name="cdb" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+          <div class="fg"><span class="fl">CO-PILOTE</span><input class="ff" name="cop" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+        </div>
+        <div class="fr2">
+          <div class="fg"><span class="fl">OPERATEUR 1</span><input class="ff" name="op1" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+          <div class="fg"><span class="fl">OPERATEUR 2</span><input class="ff" name="op2" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><span class="fl">OPERATEUR 3 <span class="ob">FACULTATIF</span></span><input class="ff" name="op3" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+          <div class="fg"><span class="fl">MECANICIEN</span><input class="ff" name="meca" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+          <div class="fg"><span class="fl">OBSERVATEUR <span class="ob">FACULTATIF</span></span><input class="ff" name="obs" type="text" maxlength="120" placeholder="Nom et grade..."></div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-t">&#9203;&nbsp; TEMPS DE VOL</div>
+        <div class="fr3">
+          <div class="fg"><span class="fl">HEURE DECOLLAGE</span><input class="ff" name="hdec" type="time"></div>
+          <div class="fg"><span class="fl">HEURE ATTERRISSAGE</span><input class="ff" name="hatt" type="time"></div>
+          <div class="fg"><span class="fl">TOTAL HEURES DE VOL</span><div class="ff-tot" id="f-tot">&mdash;</div></div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-t">&#127919;&nbsp; MISSION</div>
+        <div class="fr1"><div class="fg"><span class="fl">OBJECTIF DE LA MISSION</span><textarea class="ff" name="obj" maxlength="4000" placeholder="Decrire l'objectif principal..."></textarea></div></div>
+      </div>
+    </form>
+    <div class="ok-msg" id="fiche-ok" role="status"></div>
+    <div class="form-error form-error-bar" id="fiche-error" role="alert"></div>
+    <div class="ffoot">
+      <button class="fbtn fbtn-x" data-close="modal-fiche">&#10005;&nbsp; FERMER</button>
+      <button class="fbtn fbtn-p" id="f-btn-p" data-act="printEtat" disabled>&#128424;&nbsp; IMPRIMER</button>
+      <button class="fbtn fbtn-s" id="f-btn-s" data-act="saveEtat" disabled>&#10004;&nbsp; ENREGISTRER</button>
+    </div>
+  </div>
+</div>
+
+<!-- FICHE MISSION ISR (POI) -->
+<div class="mbg" id="modal-poi">
+  <div class="pbox">
+    <div class="phdr">
+      <span style="font-size:26px">&#128205;</span>
+      <div><div class="phdr-title">FICHE MISSION ISR</div><div class="phdr-sub">Points d'Interet (POI) &mdash; Armee de l'Air</div></div>
+      <div class="close-btns" style="margin-left:auto"><button class="cbtn cbtn-b" data-close="modal-poi" aria-label="Fermer">&#10005;</button></div>
+    </div>
+    <div class="pbody">
+      <div class="fr2" style="margin-bottom:11px">
+        <div class="fg"><span class="pl">DATE DE MISSION</span><input class="pf" type="date" id="p-date"></div>
+        <div class="fg"><span class="pl">DESIGNATION DE LA MISSION</span><input class="pf" type="text" id="p-miss" maxlength="200" placeholder="Ex: Surveillance zone Nord..."></div>
+      </div>
+      <div class="psec-t">&#128205;&nbsp; POINTS D'INTERET (POI)</div>
+      <div id="poi-list"></div>
+      <button class="btn-add" data-act="addPoi">&#65291;&nbsp; AJOUTER UN POI</button>
+    </div>
+    <div class="pok" id="poi-ok" role="status"></div>
+    <div class="form-error form-error-bar" id="poi-error" role="alert"></div>
+    <div class="pfoot">
+      <button class="pbtn pbtn-x" data-close="modal-poi">&#10005;&nbsp; FERMER</button>
+      <button class="pbtn pbtn-p" id="p-btn-p" data-act="printPoi" disabled>&#128424;&nbsp; IMPRIMER PDF</button>
+      <button class="pbtn pbtn-s" id="p-btn-s" data-act="savePoi" disabled>&#10004;&nbsp; ENREGISTRER</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANNEAU LATÉRAL -->
+<div class="side-overlay" id="side-overlay" data-act="closeSidePanel"></div>
+<aside class="side-panel" id="side-panel" aria-label="Menu opérateur">
+  <div class="side-panel-top">
+    <span class="side-panel-title">OPÉRATEUR</span>
+    <button class="side-panel-close" data-act="closeSidePanel" aria-label="Fermer">&#10005;</button>
+  </div>
+  <div class="side-panel-profile">
+    <div id="sp-avatar-wrap"></div>
+    <div class="side-panel-name" id="sp-name">&mdash;</div>
+    <div class="side-panel-grade" id="sp-grade"></div>
+    <div class="side-panel-pseudo" id="sp-pseudo"></div>
+    <div class="role-badge" id="sp-role"></div>
+  </div>
+  <div class="side-panel-body">
+    <button class="side-nav-btn" data-act="showProfile"><span class="ico">&#128100;</span> MON PROFIL</button>
+    <button class="side-nav-btn" data-act="showHistorique"><span class="ico">&#128337;</span> HISTORIQUE</button>
+    <button class="side-nav-btn" id="nav-admin" data-act="openAdmin" hidden><span class="ico">&#9881;</span> ADMINISTRATION</button>
+    <div style="flex:1;"></div>
+    <button class="side-nav-btn danger" data-act="logout"><span class="ico">&#8644;</span> DÉCONNEXION</button>
+  </div>
+  <div class="side-panel-foot">ISR DATABASE v3.0 &mdash; Usage Officiel</div>
+</aside>
+
+<div class="prog-wrap"><div class="prog-bar" id="pbar"></div></div>
+<div class="dots" id="dots"><div class="dot on" id="d0"></div><div class="dot" id="d1"></div></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/js/ui.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/print.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/archive.js"></script>
+<script src="/js/fiches.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
